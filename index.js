@@ -96,7 +96,7 @@ function Indigo2Platform(log, config) {
         this.log("WARNING: port not configured - using %s", port);
     }
 
-    this.baseURL = protocol + "://" + config.host + ":" + port + "/HomeKit";
+    this.baseURL = protocol + "://" + config.host + ":" + port;
     this.log("HomeKit-Bridge base URL is %s", this.baseURL);
 
     if (config.serverId) {
@@ -161,46 +161,75 @@ Indigo2Platform.prototype.accessories = function(callback) {
 // Populates this.foundAccessories and this.accessoryMap
 // callback: invokes callback(error) when all accessories have been discovered; error is undefined if no error occurred
 Indigo2Platform.prototype.discoverAccessories = function(callback) {
-    this.indigoRequestJSON("cmd=deviceList", "GET", null,
+    this.indigoRequestJSON("/HomeKit?cmd=deviceList&serverId=" + this.serverId, "GET", null,
         function(error, json) {
             if (error) {
                 callback(error);
             }
             else {
-                async.eachSeries(json, this.addAccessory.bind(this),
-                    function(asyncError) {
-                        if (asyncError) {
-                            callback(asyncError);
-                        } else {
-                            callback();
-                        }
-                    }
-                );
+                json.forEach(this.addAccessory.bind(this));
             }
         }.bind(this)
     );
 };
 
 // Adds an IndigoAccessory object to this.foundAccessories and this.accessoryMap
-// item: JSON describing the device, as returned by the root of the Indigo RESTful API (e.g. /devices.json/)
-// callback: invokes callback(error), error is always undefined as we want to ignore errors
-Indigo2Platform.prototype.addAccessory = function(item, callback) {
-    // Get the details of the item, using its provided restURL
-    this.indigoRequestJSON(item.restURL, "GET", null,
-        function(error, json) {
-            if (error) {
-                this.log("Ignoring accessory %s due to error", item.restURL);
-                callback();
-            }
-            else {
-                this.log("Discovered %s (ID %s): %s", json.type, json.id, json.name);
-                var accessory = new Indigo2Accessory(this, item.restURL, json);
-                this.foundAccessories.push(accessory);
-                this.accessoryMap.set(String(json.id), accessory);
-                callback();
-            }
-        }.bind(this)
-    );
+// item: JSON describing the device
+Indigo2Platform.prototype.addAccessory = function(item) {
+    var accessory = this.createAccessory(item);
+    if (accessory) {
+        this.foundAccessories.push(accessory);
+        this.accessoryMap.set(accessory.id, accessory);
+    }
+};
+
+Indigo2Platform.prototype.createAccessory = function(item) {
+    var id = item.id;
+    if (! id) {
+        this.log("ERROR: Device missing id");
+        return null;
+    }
+    id = String(id);
+
+    var serviceName = item.hkservice;
+    if (! serviceName) {
+        this.log("ERROR: Device %s missing service name", id);
+        return null;
+    }
+    serviceName = String(serviceName);
+
+    var service = Service[String(serviceName)];
+    if (! service) {
+        this.log("ERROR: Device %s has unknown Service name: %s", id, serviceName);
+        return null;
+    }
+
+    var name = item.name;
+    if (item.alias) {
+        name = item.alias;
+    }
+    if (! name) {
+        this.log("Error: Device %s has no name or alias", id);
+        return null;
+    }
+    name = String(name);
+
+    var url = item.url;
+    if (! url) {
+        this.log("Error: Device %s has no url", id);
+        return null;
+    }
+    url = String(url);
+
+    var type = item.object;
+    if (! type) {
+        this.log("Error: Device %s has no object type", id);
+        return null;
+    }
+    type = String(type);
+
+    this.log("Discovered %s %s (ID %s): %s", type, serviceName, id, name);
+    return new Indigo2Accessory(this, service, url, id, type, name, item);
 };
 
 // Makes a request to Indigo using the RESTful API
@@ -217,9 +246,6 @@ Indigo2Platform.prototype.indigoRequest = function(path, method, qs, callback) {
         followRedirect: false,
         redirects: []
     };
-    if (this.auth) {
-        options.auth = this.auth;
-    }
     if (qs) {
         options.qs = qs;
     }
@@ -306,17 +332,20 @@ Indigo2Platform.prototype.updateAccessoryFromPost = function(request, response) 
 // deviceURL: the path of the RESTful call for this device, relative to the base URL in the configuration, starting with a /
 // json: the json that describes this device
 //
-function Indigo2Accessory(platform, deviceURL, json) {
+function Indigo2Accessory(platform, serviceType, deviceURL, id, type, name, json) {
     this.platform = platform;
     this.log = platform.log;
     this.deviceURL = deviceURL;
+    this.id = id;
+    this.type = type;
+    this.name = name;
 
     this.updateFromJSON(json);
 
     Accessory.call(this, this.name, uuid.generate(String(this.id)));
 
     this.infoService = this.getService(Service.AccessoryInformation);
-    this.infoService.setCharacteristic(Characteristic.Manufacturer, "Indigo")
+    this.infoService.setCharacteristic(Characteristic.Manufacturer, "Indigo HomeKit-Bridge")
         .setCharacteristic(Characteristic.SerialNumber, String(this.id));
 
     if (this.type) {
@@ -327,7 +356,6 @@ function Indigo2Accessory(platform, deviceURL, json) {
         this.infoService.setCharacteristic(Characteristic.FirmwareRevision, this.versByte);
     }
 
-    // TODO: serviceType from json
     this.service = this.addService(serviceType, this.name);
 }
 
@@ -345,7 +373,7 @@ Indigo2Accessory.prototype.getServices = function() {
 // updateCallback: optional, invokes updateCallback(propertyName, propertyValue) for each property that has changed value
 Indigo2Accessory.prototype.updateFromJSON = function(json, updateCallback) {
     for (var prop in json) {
-        if (prop != "name" && json.hasOwnProperty(prop)) {
+        if (prop != "name" && prop != "id" && prop != "deviceURL" && prop != "type" && json.hasOwnProperty(prop)) {
             if (json[prop] != this[prop]) {
                 this[prop] = json[prop];
                 if (updateCallback) {
