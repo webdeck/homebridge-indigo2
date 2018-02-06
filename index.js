@@ -212,7 +212,7 @@ Indigo2Platform.prototype.createAccessory = function(item) {
         this.log("Error: Device %s has no name or alias", id);
         return null;
     }
-    name = String(name);
+    name = this.accessoryNamePrefix + String(name);
 
     var url = item.url;
     if (! url) {
@@ -381,11 +381,6 @@ Indigo2Accessory.prototype.updateFromJSON = function(json, updateCallback) {
                 }
             }
         }
-    }
-
-    // Allows us to change the name of accessories - useful for testing
-    if (json.name !== undefined) {
-        this.name = this.platform.accessoryNamePrefix + String(json.name);
     }
 };
 
