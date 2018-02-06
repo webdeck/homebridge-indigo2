@@ -11,11 +11,11 @@
     "platforms": [
         {
             "platform": "Indigo2",
-            "name": "My Indigo Server",
+            "name": "My Indigo2 Server",
             "protocol": "http",
             "host": "127.0.0.1",
-            "port": "8558",
-			"serverId": "12345678",
+            "port": 8558,
+            "serverId": "12345678",
             "accessoryNamePrefix": "",
             "listenPort": 8559
         }

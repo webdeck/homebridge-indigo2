@@ -16,11 +16,11 @@ Configuration sample:
     "platforms": [
         {
             "platform": "Indigo2",
-            "name": "My Indigo Server",
+            "name": "My Indigo2 Server",
             "protocol": "http",
             "host": "127.0.0.1",
-            "port": "8558",
-			"serverId": "12345678",
+            "port": 8558,
+            "serverId": "12345678",
             "accessoryNamePrefix": "",
             "listenPort": 8559
         }
@@ -35,7 +35,7 @@ Fields:
 * "port": Port number of your HomeKit-Bridge RESTful API server (required)
 * "serverId": Identifier of the HomeKit-Bridge server instance (required)
 * "accessoryNamePrefix": Prefix all accessory names with this string (optional, useful for testing)
-* "listenPort": homebridge-indigo will listen on this port for device state updates from HomeKit-Bridge (required)
+* "listenPort": homebridge-indigo2 will listen on this port for device state updates from HomeKit-Bridge (required)
 
 HomeKit limits bridges to 100 devices.
 homebridge-indigo2 will only include up to the first 99 accessories discovered.
