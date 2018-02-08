@@ -325,8 +325,16 @@ Indigo2Platform.prototype.updateAccessoryFromPost = function(request, response) 
     this.log("Got update request for device ID %s", id);
     var accessory = this.accessoryMap.get(id);
     if (accessory) {
-        accessory.refreshFromJSON(request.body);
-        response.sendStatus(200);
+        // TODO - use request.body after confirming contents w/CFW
+        // accessory.refreshFromJSON(request.body);
+        accessory.refresh(function(error) {
+            if (error) {
+                this.log("Error updating device ID %s: %s", id, error);
+                response.sendStatus(500);
+            } else {
+                response.sendStatus(200);
+            }
+        }.bind(this));
     }
     else {
         response.sendStatus(404);
@@ -414,14 +422,13 @@ Indigo2Accessory.prototype.createGetter = function(characteristicName) {
         var characteristic = this.characteristics[characteristicName];
         if (characteristic) {
             var value = characteristic.value;
-            if (value) {
+            if (value !== undefined && value !== null) {
                 this.log("%s: get(%s) => %s", this.name, characteristicName, value);
                 if (callback) {
                     callback(undefined, value);
                 }
             }
             else {
-                // TODO - request update from Indigo
                 this.log("%s: get(%s) => undefined", this.name, characteristicName);
                 if (callback) {
                     callback("Undefined value for characteristic " + characteristicName);
@@ -461,21 +468,33 @@ Indigo2Accessory.prototype.getServices = function() {
     return this.services;
 };
 
-// Updates the Accessory's characteristic values
+// Updates the Accessory's characteristic values, notifying HomeKit of any changes
 // characteristics: JSON array of characteristics from the Indigo RESTful API
-// updateCallback: optional, invokes updateCallback(characteristicame, characteristicValue) for each characteristic that has changed value
-Indigo2Accessory.prototype.updateCharacteristics = function(characteristics, updateCallback) {
+Indigo2Accessory.prototype.updateCharacteristics = function(characteristics) {
     if (Array.isArray(characteristics)) {
         for (var characteristic in characteristics) {
-            if (characteristic.name) {
-                var old = this.characteristics[characteristic.name];
+            var name = characteristic.name;
+            if (name) {
+                var newValue = characteristic.value;
+                var old = this.characteristics[name];
                 var oldValue;
                 if (old) {
                     oldValue = old.value;
                 }
-                this.characteristics[characteristic.name] = characteristic;
-                if (updateCallback && oldValue != characteristic.value) {
-                    updateCallback(characteristic.name, characteristic.value);
+                this.characteristics[name] = characteristic;
+                if (oldValue != newValue) {
+                    var characteristicType = Characteristic[name];
+                    if (characteristicType) {
+                        var c = this.service.getCharacteristic(characteristicType);
+                        if (c) {
+                            c.updateValue(newValue);
+                        } else {
+                            this.log("ERROR: Device %s - error getting Characteristic named %s", this.id, name);
+                        }
+                    }
+                    else {
+                        this.log("ERROR: Device %s has unknown Characteristic name: %s", this.id, name);
+                    }
                 }
             }
         }
@@ -484,8 +503,7 @@ Indigo2Accessory.prototype.updateCharacteristics = function(characteristics, upd
 
 // Calls the Indigo RESTful API to get the latest state for this Accessory, and updates the Accessory's properties to match
 // callback: invokes callback(error), error is undefined if no error occurred
-// updateCallback: optional, invokes updateCallback(propertyName, propertyValue) for each property that has changed value
-Indigo2Accessory.prototype.indigoRequest = function(url, callback, updateCallback) {
+Indigo2Accessory.prototype.indigoRequest = function(url, callback) {
     this.platform.indigoRequestJSON(url, "GET", null,
         function(error, json) {
             if (error) {
@@ -508,73 +526,10 @@ Indigo2Accessory.prototype.indigoRequest = function(url, callback, updateCallbac
     );
 };
 
-// Calls the Indigo RESTful API to alter the state of this Accessory, and updates the Accessory's properties to match
-// qs: the query string parameters to send to the Indigo RESTful API via a PUT request
-// callback: invokes callback(error), error is undefined if no error occurred
-// updateCallback: optional, invokes updateCallback(propertyName, propertyValue) for each property that has changed value
-Indigo2Accessory.prototype.updateStatus = function(qs, callback, updateCallback) {
-    this.log("updateStatus of %s: %s", this.name, JSON.stringify(qs));
-    this.platform.indigoRequest(this.deviceURL, "PUT", qs,
-        function(error, response, body) {
-            if (error) {
-                if (callback) {
-                    callback(error);
-                }
-            } else {
-                this.getStatus(callback, updateCallback);
-            }
-        }.bind(this)
-    );
-};
-// Calls the Indigo RESTful API to get the latest state of this Accessory, and updates the Accessory's properties to match
-// key: the property we are interested in
-// callback: invokes callback(error, value), error is undefined if no error occurred, value is the value of the property named key
-Indigo2Accessory.prototype.query = function(key, callback) {
-    this.getStatus(
-        function(error) {
-            if (error) {
-                if (callback) {
-                    callback(error);
-                }
-            } else {
-                this.log("%s: query(%s) => %s", this.name, key, this[key]);
-                if (callback) {
-                    callback(undefined, this[key]);
-                }
-            }
-        }.bind(this)
-    );
-};
-
-// Invokes the Accessory's update_XXX(value) function, if it exists, where "XXX" is the value of prop
-// For example, updateProperty("brightness", 100) invokes update_brightness(100) if the function update_brightess exists
-// prop: the property name
-// value: the property value
-// TODO: Need a more elegant way to map HomeKit Characteristics and values to Indigo JSON keys and values
-Indigo2Accessory.prototype.updateProperty = function(prop, value) {
-    updateFunction = "update_" + prop;
-    if (this[updateFunction]) {
-        this.log("%s: %s(%s)", this.name, updateFunction, value);
-        this[updateFunction](value);
-    }
-};
-
-// Calls the Indigo RESTful API to get the latest state of this Accessory, and updates the Accessory's properties to match
-// Invokes the Accessory's update_KEY function for each property KEY where the value has changed from the prior cached state
-// If the Accessory does not have an update_KEY function for a given KEY, it is safely ignored
-// This is used when we are listening on the listenPort for notifications from Indigo about devices that have changed state
+// Calls the Indigo RESTful API to get the latest state of this Accessory, and updates the Accessory's properties to match,
+// notifying HomeKit of any changes.
 // callback: invokes callback(error), error is undefined if no error occurred
 Indigo2Accessory.prototype.refresh = function(callback) {
     this.log("%s: refresh()", this.name);
-    this.getStatus(callback, this.updateProperty.bind(this));
-};
-
-// Updates the Accessory's properties to match the provided JSON key/value pairs
-// Invokes the Accessory's update_KEY function for each property KEY where the value has changed from the prior cached state
-// If the Accessory does not have an update_KEY function for a given KEY, it is safely ignored
-// This is used when we are listening on the listenPort for notifications from Indigo about devices that have changed state
-// json: the JSON key/value pairs to update
-Indigo2Accessory.prototype.refreshFromJSON = function(json) {
-    this.log("%s: refreshFromJSON()", this.name);
-    this.updateFromJSON(json, this.updateProperty.bind(this));
+    this.indigoRequest(this.deviceURL + "&cmd=getInfo", callback);
 };
