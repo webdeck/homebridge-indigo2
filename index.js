@@ -487,13 +487,14 @@ Indigo2Accessory.prototype.updateCharacteristics = function(characteristics) {
                     if (characteristicType) {
                         var c = this.service.getCharacteristic(characteristicType);
                         if (c) {
+                            this.log("%s: %s: %s -> %s", this.name, name, oldValue, newValue);
                             c.updateValue(newValue);
                         } else {
-                            this.log("ERROR: Device %s - error getting Characteristic named %s", this.id, name);
+                            this.log("%s: ERROR: Unable to get Characteristic named %s", this.name, name);
                         }
                     }
                     else {
-                        this.log("ERROR: Device %s has unknown Characteristic name: %s", this.id, name);
+                        this.log("%s: ERROR: Unknown Characteristic name: %s", this.name, name);
                     }
                 }
             }
