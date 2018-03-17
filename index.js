@@ -171,7 +171,7 @@ Indigo2Platform.prototype.discoverAccessories = function(callback) {
                 callback();
             }
             else {
-                callback("Invalid HomeKit Bridge response getting device list: %s", JSON.stringify(json));
+                callback("Invalid HomeKit Bridge response getting device list: " + JSON.stringify(json));
             }
         }.bind(this)
     );
@@ -239,7 +239,7 @@ Indigo2Platform.prototype.createAccessory = function(item) {
     }
 
     this.log("Discovered %s %s (ID %s): %s", objectType, serviceName, id, name);
-    return new Indigo2Accessory(this, service, url, id, objectType, name, characteristicsJSON);
+    return new Indigo2Accessory(this, service, url, id, objectType, name, item, characteristicsJSON);
 };
 
 // Makes a request to Indigo using the RESTful API
@@ -355,9 +355,10 @@ Indigo2Platform.prototype.updateAccessoryFromPost = function(request, response) 
 // id: the unique identifier of the device
 // objectType: the type of Indigo object (e.g. "Device", "Action", "Variable")
 // name: the unique name of the device
+// accessoryJSON: the JSON describing this accessory
 // characteristicsJSON: the JSON array of characteristics for this device
 //
-function Indigo2Accessory(platform, serviceType, deviceURL, id, objectType, name, characteristicsJSON) {
+function Indigo2Accessory(platform, serviceType, deviceURL, id, objectType, name, accessoryJSON, characteristicsJSON) {
     this.platform = platform;
     this.log = platform.log;
     this.serviceType = serviceType;
@@ -373,13 +374,12 @@ function Indigo2Accessory(platform, serviceType, deviceURL, id, objectType, name
     this.infoService.setCharacteristic(Characteristic.Manufacturer, "Indigo HomeKit Bridge")
         .setCharacteristic(Characteristic.SerialNumber, String(id));
 
-    // TODO: Request type and versByte to be added to JSON to specify Model and FirmwareRevision
-    if (this.type) {
-        this.infoService.setCharacteristic(Characteristic.Model, type);
+    if (accessoryJSON.type) {
+        this.infoService.setCharacteristic(Characteristic.Model, accessoryJSON.type);
     }
 
-    if (this.versByte) {
-        this.infoService.setCharacteristic(Characteristic.FirmwareRevision, this.versByte);
+    if (accessoryJSON.versByte) {
+        this.infoService.setCharacteristic(Characteristic.FirmwareRevision, accessoryJSON.versByte);
     }
 
     this.service = this.addService(serviceType, name);
