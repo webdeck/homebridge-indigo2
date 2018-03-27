@@ -514,7 +514,7 @@ Indigo2Accessory.prototype.updateCharacteristicValue = function(characteristicJS
             if (newValue === undefined || newValue === null) {
                 this.log("%s: ERROR: updateCharacteristicValue: Invalid value %s for characteristic %s", this.name, newValue, name);
             }
-            if (oldValue !== newValue) {
+            else if (oldValue !== newValue) {
                 this.log("%s: updateCharacteristicValue(%s): %s -> %s", this.name, name, oldValue, newValue);
                 cachedCharacteristicValue.setValue(newValue);
                 cachedCharacteristicValue.getCharacteristic().updateValue(newValue);
