@@ -140,19 +140,25 @@ Indigo2Platform.prototype.accessories = function(callback) {
             }
 
             if (this.foundAccessories.length > 99) {
-                this.log("*** WARNING *** you have %s accessories.",
-                         this.foundAccessories.length);
+                this.log("*** WARNING: you have %s accessories. ***", this.foundAccessories.length);
                 this.log("*** Limiting to the first 99 discovered. ***");
-                this.log("*** See README.md for how to filter your list. ***");
                 this.foundAccessories = this.foundAccessories.slice(0, 99);
             }
 
             this.log("Created %s accessories", this.foundAccessories.length);
-            callback(this.foundAccessories.sort(
-                function (a, b) {
-                    return (a.name > b.name) - (a.name < b.name);
-                }
-            ));
+
+            if (this.foundAccessories.length === 0) {
+                // TODO retry, instead of bailing right away...
+                this.log("*** ERROR: NO ACCESSORIES DISCOVERED. ***");
+                this.log("*** RESTART HOMEBRIDGE AND TRY AGAIN. ***");
+            }
+            else {
+                callback(this.foundAccessories.sort(
+                    function (a, b) {
+                        return (a.name > b.name) - (a.name < b.name);
+                    }
+                ));
+            }
         }.bind(this)
     );
 };
