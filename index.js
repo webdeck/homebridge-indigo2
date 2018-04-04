@@ -120,7 +120,7 @@ function Indigo2Platform(log, config) {
         this.app.use(bodyParser.urlencoded({ extended: true }));
         this.app.get("/devices/:id", this.updateAccessory.bind(this));
         this.app.post("/devices/:id", this.updateAccessoryFromPost.bind(this));
-        this.app.listen(config.listenPort,
+        this.app.listen(config.listenPort, "localhost", 511,
             function() {
                 this.log("Listening on port %d", config.listenPort);
             }.bind(this)
@@ -331,19 +331,26 @@ Indigo2Platform.prototype.updateAccessory = function(request, response) {
 // Sends a 200 HTTP response if successful, or a 404 if the ID is not found
 Indigo2Platform.prototype.updateAccessoryFromPost = function(request, response) {
     var id = String(request.params.id);
-    this.log("POST update request for device ID %s:\n%s", id, request.body);
+    var json = request.body;
+    this.log("POST update request for device ID %s", id);
     var accessory = this.accessoryMap.get(id);
     if (accessory) {
-        // TODO - use request.body after confirming contents w/CFW
-        // accessory.refreshFromJSON(request.body);
-        accessory.refresh(function(error) {
-            if (error) {
-                this.log("Error updating device ID %s: %s", id, error);
-                response.sendStatus(500);
-            } else {
-                response.sendStatus(200);
-            }
-        }.bind(this));
+        var characteristicsJSON = json.hkcharacteristics;
+        if (Array.isArray(characteristicsJSON)) {
+            accessory.updateCharacteristicValues(characteristicsJSON);
+            response.sendStatus(200);
+        }
+        else {
+            this.log("ERROR: Invalid POST data, treating as a GET request");
+            accessory.refresh(function(error) {
+                if (error) {
+                    this.log("Error updating device ID %s: %s", id, error);
+                    response.sendStatus(500);
+                } else {
+                    response.sendStatus(200);
+                }
+            }.bind(this));
+        }
     }
     else {
         this.log("ERROR: Unknown device ID %s", id);
