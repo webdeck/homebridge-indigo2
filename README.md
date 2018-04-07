@@ -22,7 +22,8 @@ Configuration sample:
             "port": 8558,
             "serverId": "12345678",
             "accessoryNamePrefix": "",
-            "listenPort": 8559
+            "listenPort": 8559,
+            "debug": false
         }
     ]
 ```
@@ -36,6 +37,7 @@ Fields:
 * "serverId": Identifier of the HomeKit Bridge server instance (required)
 * "accessoryNamePrefix": Prefix all accessory names with this string (optional, useful for testing)
 * "listenPort": homebridge-indigo2 will listen on this port for device state updates from HomeKit Bridge (required)
+* "debug": If true, will log extra debugging information
 
 HomeKit limits bridges to 100 devices.
 homebridge-indigo2 will only include up to the first 99 accessories discovered.
