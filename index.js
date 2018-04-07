@@ -194,6 +194,11 @@ Indigo2Platform.prototype.addAccessory = function(item) {
 };
 
 Indigo2Platform.prototype.createAccessory = function(item) {
+    if (! item) {
+        this.log("ERROR: Device is null");
+        return null;
+    }
+
     var id = item.id;
     if (! id) {
         this.log("ERROR: Device missing id");
@@ -432,6 +437,19 @@ Indigo2Accessory.prototype.addCharacteristic = function(characteristicJSON) {
     var readonly = characteristicJSON.readonly;
     if (! readonly) {
         characteristic.on('set', this.createSetter(name).bind(this));
+    }
+
+    if (characteristicJSON.changeMinMax) {
+        var minValue = characteristicJSON.minValue;
+        if (minValue !== undefined && minValue !== null) {
+            this.log("%s: Overriding min value to %s", this.name, minValue);
+            characteristic.setProps({minValue: minValue});
+        }
+        var maxValue = characteristicJSON.maxValue;
+        if (maxValue !== undefined && maxValue !== null) {
+            this.log("%s: Overriding max value to %s", this.name, maxValue);
+            characteristic.setProps({maxValue: maxValue});
+        }
     }
 
     // TODO - debug logging
