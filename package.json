@@ -1,7 +1,7 @@
 {
   "name": "homebridge-indigo2",
   "description": "Indigo plugin for homebridge: https://github.com/nfarina/homebridge",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "repository": {
     "type": "git",
     "url": "https://github.com/webdeck/homebridge-indigo2.git"
@@ -32,6 +32,7 @@
     "inherits": "^2.0.1",
     "request": "2.79.x",
     "express": "^4.14.0",
-    "body-parser": "^1.15.2"
+    "body-parser": "^1.15.2",
+    "hap-nodejs-community-types": "homespun/hap-nodejs-community-types"
   }
 }
