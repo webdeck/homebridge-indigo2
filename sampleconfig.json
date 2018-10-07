@@ -18,6 +18,7 @@
             "serverId": "12345678",
             "accessoryNamePrefix": "",
             "listenPort": 8559,
+            "sendDuplicateUpdates": false,
             "debug": false
         }
     ],

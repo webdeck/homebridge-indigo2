@@ -70,6 +70,7 @@ function fixInheritance(subclass, superclass) {
 function Indigo2Platform(log, config) {
     this.log = log;
     this.debug = config.debug;
+    this.sendDuplicateUpdates = config.sendDuplicateUpdates;
 
     // We use a queue to serialize all the requests to HomeKit Bridge
     this.requestQueue = async.queue(
@@ -521,7 +522,7 @@ Indigo2Accessory.prototype.createSetter = function(characteristicName) {
         var cachedCharacteristicValue = this.getCachedCharacteristicValue(characteristicName);
         if (cachedCharacteristicValue) {
             var oldValue = cachedCharacteristicValue.getValue();
-            if (value !== oldValue) {
+            if (value !== oldValue || this.platform.sendDuplicateUpdates) {
                 this.log("%s: set(%s) %s -> %s", this.name, characteristicName, oldValue, value);
                 cachedCharacteristicValue.setValue(value);
                 var url = this.deviceURL + "&cmd=setCharacteristic&" + characteristicName + "=" + String(value);
